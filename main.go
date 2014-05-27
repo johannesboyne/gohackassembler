@@ -64,7 +64,7 @@ var compTable = map[string]string{
   "M+D" : "000010",
   "A-D" : "000111",
   "D-A" : "000111",
-  "M-D" : "010011",
+  "M-D" : "000111",
   "D-M" : "010011",
   "D&A" : "000000",
   "A&D" : "000000",
@@ -75,20 +75,54 @@ var compTable = map[string]string{
   "D|M" : "010101",
   "M|D" : "010101",
 }
-var aSymbolRe = regexp.MustCompile("@")
-var eqRe = regexp.MustCompile("=")
-var jmpRe = regexp.MustCompile(";")
-var aBitRe = regexp.MustCompile("M")
-var jmperRe = regexp.MustCompile("JMP")
-func main() {
-  asmString := readFileAndPrepare("MaxL.asm")
-  createProgram(asmString)
+
+var predefinedTable = map[string]string{
+  "SP"  : "0",
+  "LCL" : "1",
+  "ARG" : "2",
+  "THIS": "3",
+  "THAT": "4",
+  "R0"  : "0",
+  "R1"  : "1",
+  "R2"  : "2",
+  "R3"  : "3",
+  "R4"  : "4",
+  "R5"  : "5",
+  "R6"  : "6",
+  "R7"  : "7",
+  "R8"  : "8",
+  "R9"  : "9",
+  "R10" : "10",
+  "R11" : "11",
+  "R12" : "12",
+  "R13" : "13",
+  "R14" : "14",
+  "R15" : "15",
+  "SCREEN": "16384",
+  "KBD" : "24576",
 }
 
-// remove comments and whitespace
+var aSymbolRe = regexp.MustCompile("@")
+var lSymbolRe = regexp.MustCompile("^\\(.*.\\)")
+var lSymbolReTrimmer = regexp.MustCompile("\\(|\\)")
+var eqRe = regexp.MustCompile("=")
+var jmpRe = regexp.MustCompile(";")
+var aBitRe = regexp.MustCompile("\\=.*M")
+var jmperRe = regexp.MustCompile("JMP")
+
+func main() {
+  if (len(os.Args) < 2) {
+    fmt.Println("USAGE: ...")
+  } else {
+    asmString := readFileAndPrepare(os.Args[1])
+    createProgram(asmString)
+  }
+}
+
+// remove comments
 func readFileAndPrepare(path string) string {
   var buffer bytes.Buffer
-  re := regexp.MustCompile("^//.*")
+  re := regexp.MustCompile("//.*")
   f, err := os.Open(path)
   if err != nil {
     log.Fatal("error opening file: %v\n",err)
@@ -111,28 +145,75 @@ func readFileAndPrepare(path string) string {
 }
 
 func createProgram(asmString string) {
-  //cTable := map[string]string{}
-  //aTable := map[string]string{}
-  scanner := bufio.NewScanner(bytes.NewBufferString(asmString))
-  for scanner.Scan() {
-    line := scanner.Text()
-    if (len(line) > 0) {
-      if (aSymbolRe.FindStringIndex(string(line)) == nil) {
-        if (eqRe.FindStringIndex(string(line)) != nil && jmpRe.FindStringIndex(string(line)) != nil) {
-          //aBit := getABit(string(line[1:]))
-          //fmt.Printf("111%s%s%s%s\n",aBit,compTable[line[:1]],destTable["null"],jumpTable[line[2:]])
-        } else if (eqRe.FindStringIndex(string(line)) == nil && jmpRe.FindStringIndex(string(line)) != nil) {
-          aBit := getABit(string(line[1:]))
-          fmt.Printf("111%s%s%s%s\n",aBit,compTable[line[:1]],destTable["null"],jumpTable[line[2:]])
-        } else if (eqRe.FindStringIndex(string(line)) != nil && jmpRe.FindStringIndex(string(line)) == nil) {
-          aBit := getABit(string(line[1:]))
-          fmt.Printf("111%s%s%s%s\n",aBit,compTable[line[2:]],destTable[line[0:1]],jumpTable["null"])
-        }
-      } else if (aSymbolRe.FindStringIndex(string(line)) != nil) {
-        fmt.Println(asBinaryString(string(line[1:])))
-        //aTable[string(asmString[i])] = asBinaryString(string(asmString[i]))
+  lTable := map[string]string{}
+  aTable := map[string]string{}
+  scannerL := bufio.NewScanner(bytes.NewBufferString(asmString))
+  scannerAC := bufio.NewScanner(bytes.NewBufferString(asmString))
+  lineCounter := 0
+  // scanning for labels
+  for scannerL.Scan() {
+    line := strings.TrimSpace(string(scannerL.Text()))
+    lineCounter++
+    if (lSymbolRe.FindStringIndex(line) != nil) {
+      tempL := lSymbolReTrimmer.ReplaceAllString(line, "")
+      if (lTable[tempL] == "") {
+        lineCounter--
+        lTable[tempL] = asBinaryString(strconv.Itoa(lineCounter))
       }
     }
+  }
+  // scanning the whole program
+  for scannerAC.Scan() {
+    line := strings.TrimSpace(string(scannerAC.Text()))
+    if (len(line) > 0) {
+      if (aSymbolRe.FindStringIndex(line) == nil) {
+        if (eqRe.FindStringIndex(line) != nil && jmpRe.FindStringIndex(line) != nil) {
+          cmp := eqRe.FindStringIndex(line)[1]
+          jmp := jmpRe.FindStringIndex(line)[1]
+          jpm := jmpRe.FindStringIndex(line)[0]
+          des := eqRe.FindStringIndex(line)[0]
+          aBit := getABit(line[eqRe.FindStringIndex(line)[0]:])
+          fmt.Printf("111%s%s%s%s\n",aBit,compTable[line[cmp:jpm]],destTable[line[0:des]],jumpTable[line[jmp:]])
+        } else if (eqRe.FindStringIndex(line) == nil && jmpRe.FindStringIndex(line) != nil) {
+          cmp := jmpRe.FindStringIndex(line)[0]
+          jmp := jmpRe.FindStringIndex(line)[1]
+          aBit := getABit(line[jmpRe.FindStringIndex(line)[0]:])
+          fmt.Printf("111%s%s%s%s\n",aBit,compTable[line[:cmp]],destTable["null"],jumpTable[line[jmp:]])
+        } else if (eqRe.FindStringIndex(line) != nil && jmpRe.FindStringIndex(line) == nil) {
+          cmp := eqRe.FindStringIndex(line)[1]
+          des := eqRe.FindStringIndex(line)[0]
+          aBit := getABit(line[eqRe.FindStringIndex(line)[0]:])
+          fmt.Printf("111%s%s%s%s\n",aBit,compTable[line[cmp:]],destTable[line[0:des]],jumpTable["null"])
+        }
+      } else if (aSymbolRe.FindStringIndex(line) != nil) {
+        sym := line[aSymbolRe.FindStringIndex(line)[1]:]
+        if (predefinedTable[sym]!= "") {
+          fmt.Println(asBinaryString(predefinedTable[sym]))
+        } else if (lTable[sym] != "") {
+          fmt.Println(lTable[sym])
+        } else if isInt(sym) {
+          fmt.Println(asBinaryString(sym))
+        } else {
+          if (aTable[sym] == "") {
+            aTable[sym] = asBinaryString(strconv.Itoa(len(aTable)+16))
+          }
+          fmt.Println(aTable[sym])
+        }
+      }
+    }
+  }
+}
+
+func addOrGetFromLabelTable(table map[string]string, line string) string {
+  return "TEST"
+}
+
+func isInt(strOrNum string) bool {
+  _, err := strconv.ParseInt(strOrNum, 10, 64)
+  if err != nil {
+    return false
+  } else {
+    return true
   }
 }
 
