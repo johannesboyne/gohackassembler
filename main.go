@@ -204,10 +204,6 @@ func createProgram(asmString string) {
   }
 }
 
-func addOrGetFromLabelTable(table map[string]string, line string) string {
-  return "TEST"
-}
-
 func isInt(strOrNum string) bool {
   _, err := strconv.ParseInt(strOrNum, 10, 64)
   if err != nil {
