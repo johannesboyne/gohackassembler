@@ -27,9 +27,10 @@ var jmperRe           = regexp.MustCompile("JMP")
 
 func main() {
   if (len(os.Args) < 2) {
-    usage :=  "The Go Hack Assembler\n" +
-              "---------------------\n\n" +
-              "USAGE: $ ./gohack Add.asm"
+    usage :=  "The Go Hack Assembler\n"     +
+              "---------------------\n\n"   +
+              "USAGE: $ ./gohack Add.asm\n" +
+              "or   : $ go run main.go Add.asm"
     fmt.Println(usage)
   } else {
     asmString := readFileAndPrepare(os.Args[1])
@@ -63,8 +64,8 @@ func createProgram(asmString string) {
   aTable := map[string]string{}
   scannerL := bufio.NewScanner(bytes.NewBufferString(asmString))
   scannerAC := bufio.NewScanner(bytes.NewBufferString(asmString))
-  lineCounter := 0
-  // scanning for labels
+  lineCounter := 0 // referenced as ROM-Address (starting @0)
+  // scanning for labels "First Pass"
   for scannerL.Scan() {
     line := strings.TrimSpace(string(scannerL.Text()))
     lineCounter++
@@ -76,7 +77,7 @@ func createProgram(asmString string) {
       }
     }
   }
-  // scanning the whole program
+  // scanning the whole program "Second Pass"
   for scannerAC.Scan() {
     line := strings.TrimSpace(string(scannerAC.Text()))
     if (len(line) > 0) {

@@ -5,7 +5,14 @@ This is a golang hack assembler, build for the [CSOS Class](https://www.wi.uni-m
 ####Purpose and Code-Structure
 
 The code is written functional at most but sometimes with a combination of OO principles.
-This provides two major opportunities: avoiding states on the one hand but relying on some on the other.
+This provides two major opportunities: avoiding states on the one hand but relying on some on the other usefull OO concepts.
+
+#####Design
+
+The program loads a file as string and removes commets. Next it scans the file using golangs `bufio.NewScanner` this provides an easy way of stepping through the string line by line. This process has to be done twice:
+
+ 1. build symbol table (as proposed in *Chapter 6 - Nand2Tetris*)
+ 2. build binary translation
 
 ###Usage
 
